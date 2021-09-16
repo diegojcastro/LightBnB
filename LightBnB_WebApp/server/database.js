@@ -81,9 +81,13 @@ exports.addUser = addUser;
  */
 const getAllReservations = function(guest_id, limit = 10) {
   return pool
-  .query(`SELECT * FROM reservations JOIN properties
+  .query(`SELECT reservations.*, properties.*, avg(property_reviews.rating) as average_rating
+          FROM reservations JOIN properties
           ON properties.id = reservations.property_id
-          WHERE guest_id = $1
+          JOIN property_reviews
+          ON property_reviews.property_id = properties.id
+          WHERE reservations.guest_id = $1
+          GROUP BY properties.id, reservations.id
           LIMIT $2`, [guest_id, limit])
   .then((result) => {
     return result.rows;
@@ -128,6 +132,16 @@ const getAllProperties = (options, limit = 10) => {
       appendWhere = '';
     }
     queryString += `city LIKE $${queryParams.length} `;
+  }
+
+  if (options.owner_id) {
+    if (appendWhere) {
+      queryString += appendWhere;
+      appendWhere = '';
+    }
+    if (queryParams.length > 0) queryString += `AND `;
+    queryParams.push(options.owner_id);
+    queryString += `owner_id = $${queryParams.length} `;
   }
 
   if (options.minimum_price_per_night) {
